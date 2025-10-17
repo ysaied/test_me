@@ -1,2 +1,31 @@
-# test_me
-test_me
+# Headless URL Runner
+
+Dockerized Playwright + Chromium runner that continually checks a list of URLs and writes success/failure summaries.
+
+## Project Layout
+- `Dockerfile` – container definition based on `python:3.12-slim`
+- `requirements.txt` – Python dependencies
+- `scripts/runner.py` – Playwright automation loop
+- `urls/top5_urls.txt` – default URL list bundled with the image
+- `logs/` – created automatically at runtime
+
+## Build the Image
+```bash
+docker build -t url-runner .
+```
+
+## Run with Bundled URLs
+```bash
+docker run --rm -it url-runner
+```
+
+## Provide Additional URL Files
+Any file named `*url*.txt` in `/app/urls` is loaded on each loop. Mount extra files from the host:
+```bash
+docker run --rm -it \
+  -v "$(pwd)/more_urls:/app/urls" \
+  -v "$(pwd)/logs:/app/logs" \
+  url-runner
+```
+
+The script merges all URLs (ignoring duplicates), visits each page in headless Chromium, then appends a summary to `/app/logs/summary.log`. It waits 60 seconds between loops and repeats until stopped.
