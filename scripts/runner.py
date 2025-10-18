@@ -47,6 +47,13 @@ def load_urls(files: Iterable[Path]) -> List[str]:
     return urls
 
 
+def condense_reason(reason: str) -> str:
+    if not reason:
+        return ""
+    head = reason.strip().splitlines()[0].strip()
+    return head.rstrip(":")
+
+
 async def check_url(page, url: str) -> Tuple[bool, str]:
     try:
         response = await page.goto(url, wait_until="load", timeout=NAVIGATION_TIMEOUT_MS)
@@ -78,8 +85,9 @@ async def process_urls(urls: List[str]) -> Tuple[int, List[Tuple[str, str]]]:
                 success += 1
                 logging.info("SUCCESS %s", url)
             else:
-                failed.append((url, reason))
-                logging.warning("FAILED %s (%s)", url, reason)
+                short_reason = condense_reason(reason)
+                failed.append((url, short_reason))
+                logging.warning("FAILED %s", url)
         await page.close()
         await context.close()
         await browser.close()
