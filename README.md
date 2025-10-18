@@ -35,3 +35,6 @@ The container rewrites `/etc/resolv.conf` on startup so all lookups go through `
 
 ### TLS Handling
 Playwright contexts launch with `ignore_https_errors=True`, allowing the runner to load HTTPS pages that use self-signed or otherwise invalid certificates.
+
+### Playwright Fallback
+If Playwright navigation fails, the script immediately retries the URL with an `aiohttp` GET request (with TLS verification disabled). A successful retry is logged as `SUCCESS_HTTP`, while failures from both attempts are recorded as errors.

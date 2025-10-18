@@ -5,13 +5,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-from playwright.async_api import async_playwright, Error as PlaywrightError
+import aiohttp
+from aiohttp import ClientSession
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import async_playwright
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 URL_DIR = Path(os.environ.get("URL_DIR", BASE_DIR / "urls")).resolve()
 LOG_DIR = Path(os.environ.get("LOG_DIR", BASE_DIR / "logs")).resolve()
 LOOP_DELAY = int(os.environ.get("LOOP_DELAY", "60"))
 NAVIGATION_TIMEOUT_MS = int(os.environ.get("PLAYWRIGHT_TIMEOUT_MS", "15000"))
+HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "10"))
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "summary.log"
@@ -67,6 +71,17 @@ async def check_url(page, url: str) -> Tuple[bool, str]:
         return False, str(exc)
 
 
+async def fetch_with_http(session: ClientSession, url: str) -> Tuple[bool, str]:
+    try:
+        async with session.get(url, ssl=False) as response:
+            if response.status >= 400:
+                return False, f"HTTP {response.status}"
+            await response.read()
+            return True, "ok"
+    except Exception as exc:  # pragma: no cover - aiohttp errors vary
+        return False, str(exc)
+
+
 async def process_urls(urls: List[str]) -> Tuple[int, List[Tuple[str, str]]]:
     if not urls:
         logging.info("No URLs found. Waiting for new files...")
@@ -79,13 +94,27 @@ async def process_urls(urls: List[str]) -> Tuple[int, List[Tuple[str, str]]]:
         browser = await playwright.chromium.launch(headless=True)
         context = await browser.new_context(ignore_https_errors=True)
         page = await context.new_page()
-        for url in urls:
-            ok, reason = await check_url(page, url)
-            if ok:
-                success += 1
-                logging.info("SUCCESS %s", url)
-            else:
-                short_reason = condense_reason(reason)
+        timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            for url in urls:
+                ok, reason = await check_url(page, url)
+                if ok:
+                    success += 1
+                    logging.info("SUCCESS %s", url)
+                    continue
+
+                fallback_ok, fallback_reason = await fetch_with_http(session, url)
+                if fallback_ok:
+                    success += 1
+                    logging.info(
+                        "SUCCESS_HTTP %s (Playwright failed: %s)",
+                        url,
+                        condense_reason(reason),
+                    )
+                    continue
+
+                short_reason = condense_reason(fallback_reason) or condense_reason(reason)
                 failed.append((url, short_reason))
                 logging.warning("FAILED %s", url)
         await page.close()
