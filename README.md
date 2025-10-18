@@ -29,3 +29,6 @@ docker run --rm -it \
 ```
 
 The script merges all URLs (ignoring duplicates), visits each page in headless Chromium, then appends a summary to `/app/logs/summary.log`. It waits 60 seconds between loops and repeats until stopped.
+
+### DNS Resolution
+The container rewrites `/etc/resolv.conf` on startup so all lookups go through `8.8.8.8` and `8.8.4.4`. Override this by supplying your own entrypoint or adding `--dns` flags when running the container.
