@@ -77,7 +77,7 @@ async def process_urls(urls: List[str]) -> Tuple[int, List[Tuple[str, str]]]:
 
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
-        context = await browser.new_context()
+        context = await browser.new_context(ignore_https_errors=True)
         page = await context.new_page()
         for url in urls:
             ok, reason = await check_url(page, url)

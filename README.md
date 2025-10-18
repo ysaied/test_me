@@ -32,3 +32,6 @@ The script merges all URLs (ignoring duplicates), visits each page in headless C
 
 ### DNS Resolution
 The container rewrites `/etc/resolv.conf` on startup so all lookups go through `8.8.8.8` and `8.8.4.4`. Override this by supplying your own entrypoint or adding `--dns` flags when running the container.
+
+### TLS Handling
+Playwright contexts launch with `ignore_https_errors=True`, allowing the runner to load HTTPS pages that use self-signed or otherwise invalid certificates.
